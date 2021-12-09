@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using static GirafRest.Shared.SharedMethods;
 using GirafRest.IRepositories;
 
 
@@ -35,6 +36,10 @@ namespace GirafRest.Controllers
         /// </summary>
         /// <param name="giraf">Service Injection</param>
         /// <param name="loggerFactory">Service Injection</param>
+        /// <param name="weekRepository">Service Injection</param>
+        /// <param name="timerRepository">Service Injection</param>
+        /// <param name="pictogramRepository">Service Injection</param>
+        /// <param name="weekdayRepository">Service Injection</param>
         public WeekController(IGirafService giraf, ILoggerFactory loggerFactory, IWeekRepository weekRepository, ITimerRepository timerRepository, IPictogramRepository pictogramRepository, IWeekdayRepository weekdayRepository)
         {
             _giraf = giraf;
@@ -60,7 +65,7 @@ namespace GirafRest.Controllers
             var user = await _weekRepository.getAllWeeksOfUser(userId);
             if (user == null)
                 return NotFound(new ErrorResponse(ErrorCode.UserNotFound, "User not found"));
-
+            
             if (!user.WeekSchedule.Any())
                 return Ok(new SuccessResponse<IEnumerable<WeekDTO>>(Enumerable.Empty<WeekDTO>()));
 
@@ -85,7 +90,7 @@ namespace GirafRest.Controllers
             var user = await _weekRepository.getAllWeeksOfUser(userId);
             if (user == null)
                 return NotFound(new ErrorResponse(ErrorCode.UserNotFound, "User not found"));
-
+            
             if (!user.WeekSchedule.Any())
                 return Ok(new SuccessResponse<IEnumerable<WeekNameDTO>>(Enumerable.Empty<WeekNameDTO>()));
             // Sort Returnlist 
@@ -124,7 +129,7 @@ namespace GirafRest.Controllers
                         if (activity.TimerKey != null)
                         {
                             activity.Timer = await _timerRepository.getActivitysTimerkey(activity);
-
+                            
                         }
 
                         if (activity.Pictograms != null)
@@ -148,14 +153,14 @@ namespace GirafRest.Controllers
 
                 return Ok(new SuccessResponse<WeekDTO>(new WeekDTO(week)));
             }
-
+            
             //Create default thumbnail
             var emptyThumbnail = await _pictogramRepository.GetPictogramWithName("default");
             if (emptyThumbnail == null)
             {
                 //Create default thumbnail
                 await _pictogramRepository.AddPictogramWith_NO_ImageHash("default", AccessLevel.PUBLIC);
-
+                
                 emptyThumbnail = await _pictogramRepository.GetPictogramWithName("default");
 
                 return Ok(new SuccessResponse<WeekDTO>(new WeekDTO()
@@ -208,10 +213,10 @@ namespace GirafRest.Controllers
             {
                 return BadRequest(new ErrorResponse(ErrorCode.InvalidDay, "Day must be between 0 and 6"));
             }
-
+            
             var user = await _weekRepository.LoadUserWithWeekSchedules(userId);
             if (user == null) return NotFound(new ErrorResponse(ErrorCode.UserNotFound, "User not found"));
-
+ 
             Week week = user.WeekSchedule.FirstOrDefault(w => w.WeekYear == weekYear && w.WeekNumber == weekNumber);
 
             if (week == null)
@@ -237,7 +242,7 @@ namespace GirafRest.Controllers
                 {
                     foreach (var pictogramRelation in activity.Pictograms)
                     {
-
+                        
                         var dbPictogram = await _pictogramRepository.getPictogramMatchingRelation(pictogramRelation);
                         if (dbPictogram != null)
                         {
@@ -279,7 +284,11 @@ namespace GirafRest.Controllers
 
             Week week = user.WeekSchedule.FirstOrDefault(w => w.WeekYear == weekYear && w.WeekNumber == weekNumber);
 
-            if (week == null) return NotFound(new ErrorResponse(ErrorCode.WeekNotFound, "Week not found"));
+            if (week == null)
+            {
+                week = new Week() { WeekYear = weekYear, WeekNumber = weekNumber};
+                user.WeekSchedule.Add(week);
+            }
 
             var errorCode = await _weekRepository.SetWeekFromDTO(newWeek, week);
             if (errorCode != null)
@@ -312,11 +321,11 @@ namespace GirafRest.Controllers
             {
                 return BadRequest(new ErrorResponse(ErrorCode.MissingProperties, "Missing weekday"));
             }
-
+            
             var user = await _weekRepository.LoadUserWithWeekSchedules(userId);
             if (user == null) return NotFound(new ErrorResponse(ErrorCode.UserNotFound, "User not found"));
-
-
+            
+            
             Week week = user.WeekSchedule.FirstOrDefault(w => w.WeekYear == weekYear && w.WeekNumber == weekNumber);
 
             if (week == null)
